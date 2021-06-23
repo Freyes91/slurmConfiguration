@@ -1,0 +1,167 @@
+yum update -y
+
+# Munge user
+export MUNGEUSER=966
+groupadd -g $MUNGEUSER munge
+useradd  -m -c "MUNGE Uid 'N' Gid Emporium" -d /var/lib/munge -u $MUNGEUSER -g munge  -s /sbin/nologin munge
+
+# Slurm User
+export SLURMUSER=967
+groupadd -g $SLURMUSER slurm
+useradd  -m -c "SLURM workload manager" -d /var/lib/slurm -u $SLURMUSER -g slurm  -s /bin/bash slurm
+
+# Install repos
+yum install epel-release -y
+wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+yum install epel-release-latest-7.noarch.rpm -y
+
+# install munge
+yum install munge munge-libs munge-devel rng-tools -y
+
+
+# Make munge key
+rngd -r /dev/urandom
+/usr/sbin/create-munge-key -r
+dd if=/dev/urandom bs=1 count=1024 > /etc/munge/munge.key
+chown munge: /etc/munge/munge.key
+chmod 400 /etc/munge/munge.key
+systemctl enable munge
+systemctl start munge
+systemctl status munge
+
+# Check munge key
+munge -n
+
+# Install requeriments slurm
+yum install openssl openssl-devel pam-devel numactl numactl-devel hwloc hwloc-devel lua lua-devel readline-devel rrdtool-devel ncurses-devel man2html libibmad libibumad perl-ExtUtils-MakeMaker rpm-build perl-DBI perl-Switch mariadb-devel mariadb-server gcc  python3  perl-ExtUtils-MakeMaker.noarch  ntp wget -y
+
+
+# date
+chkconfig ntpd on
+ntpdate pool.ntp.org
+systemctl start ntpd
+
+# Download Slurm
+mkdir slurm
+cd slurm
+wget https://download.schedmd.com/slurm/slurm-20.02.7.tar.bz2 # Or version available
+		
+
+# Compiling slurm
+rpmbuild -ta slurm-20.02.7.tar.bz2 
+
+# move to slurm rpms
+cd /root/rpmbuild/RPMS/x86_64
+cd /toor/rpmbuild/RPMS/x86_64 			# usuario toor
+
+
+# Install slurm rpms
+yum --nogpgcheck localinstall * -y
+
+# File Slurm conf
+cd /etc/slurm
+
+# Copy file example
+cp slurm.conf.example slurm.conf
+
+
+# Change next lines
+cambiarlo para la base de datos
+'accounting_storage/slurmdbd' and 'accounting_storage/mysql
+
+# line 12 ControlMachine=linux0 												> name slurm master
+# line 75 SlurmctldLogFile=/var/log/slurmctld.log 								> create slurmctld.log
+# line 77 SlurmdLogFile=/var/log/slurmd.log										> create slurmd.log
+# line 93 NodeName=linux[1-32] Procs=1 State=UNKNOWN							> set master server
+# line 94 PartitionName=debug Nodes=ALL Default=YES MaxTime=INFINITE State=UP 	> Nodes by master
+
+# Create files log
+mkdir /var/spool/slurm
+chown slurm: /var/spool/slurm/
+chmod 755 /var/spool/slurm/
+
+touch /var/log/slurmctld.log 
+chown slurm: /var/log/slurmctld.log
+
+touch /var/log/slurmd.log
+chown slurm: /var/log/slurmd.log
+
+# logs
+touch /var/log/slurm_jobacct.log /var/log/slurm_jobcomp.log
+chown slurm: /var/log/slurm_jobacct.log /var/log/slurm_jobcomp.log
+
+slurmd -C
+NodeName=localhost CPUs=1 Boards=1 SocketsPerBoard=1 CoresPerSocket=1 ThreadsPerCore=1 RealMemory=972 UpTime=0-00:44:40
+
+# Firewall
+firewall-cmd --permanent --zone=public --add-port=6817/udp
+firewall-cmd --permanent --zone=public --add-port=6817/tcp
+firewall-cmd --permanent --zone=public --add-port=6818/udp
+firewall-cmd --permanent --zone=public --add-port=6818/tcp
+firewall-cmd --permanent --zone=public --add-port=6819/udp
+firewall-cmd --permanent --zone=public --add-port=6819/tcp
+firewall-cmd --reload
+
+systemctl enable slurmctld slurmd
+systemctl start slurmctld slurmd
+systemctl status slurmctld slurmd
+
+# api
+ldconfig -n /usr/lib64
+
+# slurm db
+systemctl enable mariadb
+systemctl start mariadb
+systemctl status mariadb
+
+# Configuring db
+mysql
+
+### In mariadb ## #CpF4rm
+GRANT ALL ON slurm_acct_db.* TO 'slurm'@'localhost' IDENTIFIED BY 'pasword' with grant option;
+SHOW VARIABLES LIKE 'have_innodb';
+FLUSH PRIVILEGES;
+CREATE DATABASE slurm_acct_db;
+quit;
+
+mysql -p -u slurm
+
+show grants;
+quit;
+
+vi /etc/my.cnf.d/innodb.cnf
+
+[mysqld]
+innodb_buffer_pool_size=1024M
+innodb_log_file_size=64M
+innodb_lock_wait_timeout=900
+
+systemctl stop mariadb
+mv /var/lib/mysql/ib_logfile? /tmp/
+systemctl start mariadb
+systemctl status mariadb
+
+mysql
+SHOW VARIABLES LIKE 'innodb_buffer_pool_size';
+quit;
+
+# Slurmdb.conf
+cp slurmdbd.conf.example slurmdbd.conf
+chown slurm: /etc/slurm/slurmdbd.conf
+chmod 600 /etc/slurm/slurmdbd.conf
+
+vi slurmdbd.conf
+
+# line 26 LogFile=/var/log/slurmdbd.log # create file
+# line 36 StoragePass=password			# set password set in mariadb
+
+#mkdir /var/log/slurm/
+touch /var/log/slurm/slurmdbd.log
+
+chown slurm: /var/log/slurmdbd.log
+
+slurmdbd -D -vvv
+
+systemctl enable slurmdbd
+systemctl start slurmdbd
+systemctl status slurmdbd

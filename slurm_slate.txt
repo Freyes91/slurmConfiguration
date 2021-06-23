@@ -1,0 +1,61 @@
+# Munge user
+export MUNGEUSER=966
+groupadd -g $MUNGEUSER munge
+useradd  -m -c "MUNGE Uid 'N' Gid Emporium" -d /var/lib/munge -u $MUNGEUSER -g munge  -s /sbin/nologin munge
+
+# Slurm User
+export SLURMUSER=967
+groupadd -g $SLURMUSER slurm
+useradd  -m -c "SLURM workload manager" -d /var/lib/slurm -u $SLURMUSER -g slurm  -s /bin/bash slurm
+
+# install epel-release
+yum install epel-release -y
+yum install munge munge-libs munge-devel -y
+
+# Copy to slurm master munge.key
+rsync /etc/munge/munge.key root@maquina:/etc/munge
+
+chown munge: /etc/munge/munge.key
+chmod 400 /etc/munge/munge.key
+systemctl enable munge
+systemctl start munge
+systemctl status munge
+
+yum install openssl openssl-devel pam-devel numactl numactl-devel hwloc hwloc-devel lua lua-devel readline-devel rrdtool-devel ncurses-devel man2html libibmad libibumad perl-ExtUtils-MakeMaker rpm-build perl-DBI perl-Switch gcc  python3  perl-ExtUtils-MakeMaker.noarch -y
+
+# Stall slurm rpms
+yum --nogpgcheck localinstall * -y
+
+# Add Slate in file slurm.conf
+NodeName=new_slate Procs=1 State=UNKNOWN		# set with information slate001
+# Add to partition
+PartitionName=slates Nodes=new_slate Default=YES MaxTime=INFINITE State=UP
+rsync  /etc/slurm/slurm.conf toor@farm099:/etc/slurm/
+
+# Create next files
+mkdir /var/spool/slurm
+chown slurm: /var/spool/slurm/
+chmod 755 /var/spool/slurm/
+
+touch /var/log/slurmctld.log 
+chown slurm: /var/log/slurmctld.log
+
+touch /var/log/slurmd.log
+chown slurm: /var/log/slurmd.log
+
+# Check resources slate via slurm
+slurmd -C
+NodeName=slate001 CPUs=1 Boards=1 SocketsPerBoard=1 CoresPerSocket=1 ThreadsPerCore=1 RealMemory=972
+UpTime=0-00:19:58
+
+systemctl stop firewalld
+systemctl disable firewalld
+
+clocks
+chkconfig ntpd on
+ntpdate pool.ntp.org
+systemctl start ntpd
+
+systemctl enable slurmd.service
+systemctl start slurmd.service
+systemctl status slurmd.service

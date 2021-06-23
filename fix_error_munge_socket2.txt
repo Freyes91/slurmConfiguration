@@ -1,0 +1,10 @@
+fix error munge socket.2
+
+cd /etc/systemd/system/multi-user.target.wants/
+vi munge.service 
+
+in [Service] add 
+
+PermissionsStartOnly=true
+ExecStartPre=-/usr/bin/mkdir -m 0755 -p /var/run/munge
+ExecStartPre=-/usr/bin/chown -R munge:munge /var/run/munge
