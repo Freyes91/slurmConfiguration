@@ -66,20 +66,20 @@ cp slurm.conf.example slurm.conf
 
 
 # Change next lines
-cambiarlo para la base de datos
-'accounting_storage/slurmdbd' and 'accounting_storage/mysql
-
+# line 11 ClusterName=linux0													> cluster name
 # line 12 ControlMachine=linux0 												> name slurm master
 # line 75 SlurmctldLogFile=/var/log/slurmctld.log 								> create slurmctld.log
 # line 77 SlurmdLogFile=/var/log/slurmd.log										> create slurmd.log
+# line 85 AccountingStorageType=accounting_storage/slurmdbd						> uncoment activate slurmdb
 # line 93 NodeName=linux[1-32] Procs=1 State=UNKNOWN							> set master server
 # line 94 PartitionName=debug Nodes=ALL Default=YES MaxTime=INFINITE State=UP 	> Nodes by master
 
-# Create files log
+# create directory  state save location
 mkdir /var/spool/slurm
 chown slurm: /var/spool/slurm/
 chmod 755 /var/spool/slurm/
 
+# Create files log
 touch /var/log/slurmctld.log 
 chown slurm: /var/log/slurmctld.log
 
@@ -106,7 +106,7 @@ systemctl enable slurmctld slurmd
 systemctl start slurmctld slurmd
 systemctl status slurmctld slurmd
 
-# api
+# activate api
 ldconfig -n /usr/lib64
 
 # slurm db
@@ -146,6 +146,7 @@ SHOW VARIABLES LIKE 'innodb_buffer_pool_size';
 quit;
 
 # Slurmdb.conf
+cd /etc/slurm
 cp slurmdbd.conf.example slurmdbd.conf
 chown slurm: /etc/slurm/slurmdbd.conf
 chmod 600 /etc/slurm/slurmdbd.conf
@@ -156,7 +157,8 @@ vi slurmdbd.conf
 # line 36 StoragePass=password			# set password set in mariadb
 
 #mkdir /var/log/slurm/
-touch /var/log/slurm/slurmdbd.log
+#touch /var/log/slurm/slurmdbd.log
+touch /var/log/slurmdbd.log
 
 chown slurm: /var/log/slurmdbd.log
 
