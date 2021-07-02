@@ -8,6 +8,8 @@ export SLURMUSER=967
 groupadd -g $SLURMUSER slurm
 useradd  -m -c "SLURM workload manager" -d /var/lib/slurm -u $SLURMUSER -g slurm  -s /bin/bash slurm
 
+the users can exists in ldap server
+
 # install epel-release
 yum install epel-release -y
 yum install munge munge-libs munge-devel -y
@@ -24,10 +26,14 @@ systemctl status munge
 yum install openssl openssl-devel pam-devel numactl numactl-devel hwloc hwloc-devel lua lua-devel readline-devel rrdtool-devel ncurses-devel man2html libibmad libibumad perl-ExtUtils-MakeMaker rpm-build perl-DBI perl-Switch gcc  python3  perl-ExtUtils-MakeMaker.noarch -y
 
 # Stall slurm rpms
+#copy rpms slurm master to server slate go to directory and run command
 yum --nogpgcheck localinstall * -y
 
+#or via rpm local
+yum install slurm*
+
 # Add Slate in file slurm.conf
-NodeName=new_slate Procs=1 State=UNKNOWN		# set with information slate001
+NodeName=new_slate Procs=1 State=UNKNOWN		# set with information slate
 # Add to partition
 PartitionName=slates Nodes=new_slate Default=YES MaxTime=INFINITE State=UP
 rsync  /etc/slurm/slurm.conf toor@farm099:/etc/slurm/

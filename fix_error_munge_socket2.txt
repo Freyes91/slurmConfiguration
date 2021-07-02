@@ -8,3 +8,6 @@ in [Service] add
 PermissionsStartOnly=true
 ExecStartPre=-/usr/bin/mkdir -m 0755 -p /var/run/munge
 ExecStartPre=-/usr/bin/chown -R munge:munge /var/run/munge
+
+exec
+systemctl daemon-reload
